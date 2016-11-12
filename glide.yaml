@@ -1,0 +1,14 @@
+package: .
+import:
+- package: google.golang.org/api
+  subpackages:
+  - calendar/v3
+- package: golang.org/x/oauth2
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: cloud.google.com/go
+  version: v0.3.0
+  subpackages:
+  - compute/metadata
+- package: github.com/jinzhu/now
