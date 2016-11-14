@@ -9,30 +9,29 @@ import (
 	"os"
 	"strings"
 
-	"google.golang.org/api/calendar/v3"
+	calendar "google.golang.org/api/calendar/v3"
 )
 
-const lineNotifyURL = "https://notify-api.line.me/api/notify"
+type notifyEvent struct {
+	*calendar.Event
+	when string
+}
 
-func cal2message(event *calendar.Event) string {
-	if event == nil {
+func (n *notifyEvent) String() string {
+	if n == nil {
 		return "直近のイベントが設定されていません"
-	}
-	var when string
-	if event.Start.DateTime != "" {
-		when = event.Start.DateTime
-	} else {
-		when = event.Start.Date
 	}
 
 	return fmt.Sprintf(`%s は %s の日です。
-%s`, when, event.Summary, event.Description)
+%s`, n.when, n.Summary, n.Description)
 }
 
-func lineNotify(event *calendar.Event) {
+const lineNotifyURL = "https://notify-api.line.me/api/notify"
+
+func lineNotify(event *notifyEvent) {
 	token := os.Getenv("LINE_NOTIFY_TOKEN")
 
-	v := url.Values{"message": {cal2message(event)}}
+	v := url.Values{"message": {event.String()}}
 
 	req, err := http.NewRequest(http.MethodPost, lineNotifyURL, strings.NewReader(v.Encode()))
 	if err != nil {
