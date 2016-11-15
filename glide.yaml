@@ -12,3 +12,5 @@ import:
   subpackages:
   - compute/metadata
 - package: github.com/jinzhu/now
+- package: google.golang.org/grpc
+  version: ^1.0.4
