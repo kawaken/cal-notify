@@ -1,22 +1,13 @@
 package: .
 import:
 - package: google.golang.org/api
-  subpackages:
-  - calendar/v3
 - package: golang.org/x/oauth2
 - package: golang.org/x/net
-  subpackages:
-  - context
 - package: cloud.google.com/go
-  version: v0.3.0
-  subpackages:
-  - compute/metadata
 - package: github.com/jinzhu/now
 - package: google.golang.org/grpc
-  version: ^1.0.4
 - package: github.com/golang/glog
 - package: google.golang.org/genproto
-  subpackages:
-  - googleapis/bigtable
-  - googleapis
 - package: golang.org/x/debug
+- package: github.com/googleapis/gax-go
+- package: google.golang.org/appengine
