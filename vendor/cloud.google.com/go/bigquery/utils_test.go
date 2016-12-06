@@ -37,8 +37,8 @@ type testService struct {
 	service
 }
 
-func (s *testService) insertJob(ctx context.Context, job *bq.Job, projectID string) (*Job, error) {
-	s.Job = job
+func (s *testService) insertJob(ctx context.Context, projectID string, conf *insertJobConf) (*Job, error) {
+	s.Job = conf.job
 	return &Job{}, nil
 }
 

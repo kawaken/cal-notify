@@ -28,16 +28,6 @@ import (
 
 const prodAddr = "https://www.googleapis.com/bigquery/v2/"
 
-// An Option is an optional argument to Copy.
-type Option interface {
-	implementsOption()
-}
-
-// A ReadOption is an optional argument to Read.
-type ReadOption interface {
-	customizeRead(conf *pagingConf)
-}
-
 // ExternalData is a table which is stored outside of BigQuery.  It is implemented by GCSReference.
 type ExternalData interface {
 	externalDataConfig() bq.ExternalDataConfiguration
@@ -83,18 +73,4 @@ func NewClient(ctx context.Context, projectID string, opts ...option.ClientOptio
 // It need not be called at program exit.
 func (c *Client) Close() error {
 	return nil
-}
-
-// Dataset creates a handle to a BigQuery dataset in the client's project.
-func (c *Client) Dataset(id string) *Dataset {
-	return c.DatasetInProject(c.projectID, id)
-}
-
-// DatasetInProject creates a handle to a BigQuery dataset in the specified project.
-func (c *Client) DatasetInProject(projectID, datasetID string) *Dataset {
-	return &Dataset{
-		projectID: projectID,
-		id:        datasetID,
-		c:         c,
-	}
 }

@@ -16,6 +16,273 @@ backwards-incompatible changes.
 
 ## News
 
+_November 8, 2016_
+
+New datastore feature: datastore now encodes your nested Go structs as Entity values,
+instead of a flattened list of the embedded struct's fields.
+This means that you may now have twice-nested slices, eg.
+```
+type State struct {
+  Cities  []struct{
+    Populations []int
+  }
+}
+```
+
+See [the announcement](https://groups.google.com/forum/#!topic/google-api-go-announce/79jtrdeuJAg) for
+more details.
+
+_November 8, 2016_
+
+Breaking changes to datastore: contexts no longer hold namespaces; instead you
+must set a key's namespace explicitly. Also, key functions have been changed
+and renamed.
+
+* The WithNamespace function has been removed. To specify a namespace in a Query, use the Query.Namespace method:
+  ```go
+  q := datastore.NewQuery("Kind").Namespace("ns")
+  ```
+
+* All the fields of Key are exported. That means you can construct any Key with a struct literal:
+  ```go
+  k := &Key{Kind: "Kind",  ID: 37, Namespace: "ns"}
+  ```
+
+* As a result of the above, the Key methods Kind, ID, d.Name, Parent, SetParent and Namespace have been removed.
+
+* `NewIncompleteKey` has been removed, replaced by `IncompleteKey`. Replace
+  ```go
+  NewIncompleteKey(ctx, kind, parent)
+  ```
+  with
+  ```go
+  IncompleteKey(kind, parent)
+  ```
+  and if you do use namespaces, make sure you set the namespace on the returned key.
+
+* `NewKey` has been removed, replaced by `NameKey` and `IDKey`. Replace
+  ```go
+  NewKey(ctx, kind, name, 0, parent)
+  NewKey(ctx, kind, "", id, parent)
+  ```
+  with
+  ```go
+  NameKey(kind, name, parent)
+  IDKey(kind, id, parent)
+  ```
+  and if you do use namespaces, make sure you set the namespace on the returned key.
+
+* The `Done` variable has been removed. Replace `datastore.Done` with `iterator.Done`, from the package `google.golang.org/api/iterator`.
+
+* The `Client.Close` method will have a return type of error. It will return the result of closing the underlying gRPC connection.
+
+See [the announcement](https://groups.google.com/forum/#!topic/google-api-go-announce/hqXtM_4Ix-0) for
+more details.
+
+_October 27, 2016_
+
+Breaking change to bigquery: `NewGCSReference` is now a function,
+not a method on `Client`.
+
+New bigquery feature: `Table.LoaderFrom` now accepts a `ReaderSource`, enabling
+loading data into a table from a file or any `io.Reader`.
+
+_October 21, 2016_
+
+Breaking change to pubsub: removed `pubsub.Done`.
+
+Use `iterator.Done` instead, where `iterator` is the package
+`google.golang.org/api/iterator`.
+
+
+_October 19, 2016_
+
+Breaking changes to cloud.google.com/go/bigquery:
+
+* Client.Table and Client.OpenTable have been removed.
+    Replace
+    ```go
+    client.OpenTable("project", "dataset", "table")
+    ```
+    with
+    ```go
+    client.DatasetInProject("project", "dataset").Table("table")
+    ```
+
+* Client.CreateTable has been removed.
+    Replace
+    ```go
+    client.CreateTable(ctx, "project", "dataset", "table")
+    ```
+    with
+    ```go
+    client.DatasetInProject("project", "dataset").Table("table").Create(ctx)
+    ```
+    
+* Dataset.ListTables have been replaced with Dataset.Tables.
+    Replace
+    ```go
+    tables, err := ds.ListTables(ctx)
+    ```
+    with
+    ```go
+    it := ds.Tables(ctx)
+    for {
+        table, err := it.Next()
+        if err == iterator.Done {
+            break
+        }
+        if err != nil {
+            // TODO: Handle error.
+        }
+        // TODO: use table.
+    }
+    ```
+
+* Client.Read has been replaced with Job.Read, Table.Read and Query.Read. 
+    Replace
+    ```go
+    it, err := client.Read(ctx, job)
+    ```
+    with
+    ```go
+    it, err := job.Read(ctx)
+    ```
+  and similarly for reading from tables or queries.
+
+* The iterator returned from the Read methods is now named RowIterator. Its
+  behavior is closer to the other iterators in these libraries. It no longer
+  supports the Schema method; see the next item.
+    Replace
+    ```go
+    for it.Next(ctx) {
+        var vals ValueList
+        if err := it.Get(&vals); err != nil {
+            // TODO: Handle error.
+        }
+        // TODO: use vals.
+    }
+    if err := it.Err(); err != nil {
+        // TODO: Handle error.
+    }
+    ```
+    with
+    ```
+    for {
+        var vals ValueList
+        err := it.Next(&vals)
+        if err == iterator.Done {
+            break
+        }
+        if err != nil {
+            // TODO: Handle error.
+        }
+        // TODO: use vals.
+    }
+    ```
+    Instead of the `RecordsPerRequest(n)` option, write
+    ```go
+    it.PageInfo().MaxSize = n
+    ```
+    Instead of the `StartIndex(i)` option, write
+    ```go
+    it.StartIndex = i
+    ```
+
+* ValueLoader.Load now takes a Schema in addition to a slice of Values.
+    Replace
+    ```go
+    func (vl *myValueLoader) Load(v []bigquery.Value)
+    ```
+    with
+    ```go
+    func (vl *myValueLoader) Load(v []bigquery.Value, s bigquery.Schema)
+    ```
+
+
+* Table.Patch is replace by Table.Update.
+    Replace
+    ```go
+    p := table.Patch()
+    p.Description("new description")
+    metadata, err := p.Apply(ctx)
+    ```
+    with
+    ```go
+    metadata, err := table.Update(ctx, bigquery.TableMetadataToUpdate{
+        Description: "new description",
+    })
+    ```
+
+* Client.Copy is replaced by separate methods for each of its four functions.
+  All options have been replaced by struct fields.
+
+  * To load data from Google Cloud Storage into a table, use Table.LoaderFrom.
+
+    Replace
+    ```go
+    client.Copy(ctx, table, gcsRef)
+    ```
+    with
+    ```go
+    table.LoaderFrom(gcsRef).Run(ctx)
+    ```
+    Instead of passing options to Copy, set fields on the Loader:
+    ```go
+    loader := table.LoaderFrom(gcsRef)
+    loader.WriteDisposition = bigquery.WriteTruncate
+    ```
+
+  * To extract data from a table into Google Cloud Storage, use
+    Table.ExtractorTo. Set fields on the returned Extractor instead of
+    passing options.
+
+    Replace
+    ```go
+    client.Copy(ctx, gcsRef, table)
+    ```
+    with
+    ```go
+    table.ExtractorTo(gcsRef).Run(ctx)
+    ```
+
+  * To copy data into a table from one or more other tables, use
+    Table.CopierFrom. Set fields on the returned Copier instead of passing options.
+
+    Replace
+    ```go
+    client.Copy(ctx, dstTable, srcTable)
+    ```
+    with
+    ```go
+    dst.Table.CopierFrom(srcTable).Run(ctx)
+    ```
+
+  * To start a query job, create a Query and call its Run method. Set fields
+  on the query instead of passing options.
+
+    Replace
+    ```go
+    client.Copy(ctx, table, query)
+    ```
+    with
+    ```go
+    query.Run(ctx)
+    ```
+
+* Table.NewUploader has been renamed to Table.Uploader. Instead of options,
+  configure an Uploader by setting its fields.
+    Replace
+    ```go
+    u := table.NewUploader(bigquery.UploadIgnoreUnknownValues())
+    ```
+    with
+    ```go
+    u := table.NewUploader(bigquery.UploadIgnoreUnknownValues())
+    u.IgnoreUnknownValues = true
+    ```
+
+
 _October 10, 2016_
 
 Breaking changes to cloud.google.com/go/storage:
@@ -361,16 +628,16 @@ if err != nil {
     // TODO: Handle error.
 }
 // Iterate through the results.
-for it.Next(ctx) {
-    // Retrieve the current row into a list of values.
+for {
     var values bigquery.ValueList
-    if err := it.Get(&values); err != nil {
+    err := it.Next(&values)
+    if err == iterator.Done {
+        break
+    }
+    if err != nil {
         // TODO: Handle error.
     }
     fmt.Println(values)
-}
-if it.Err() != nil {
-    // TODO: Handle it.Err()
 }
 ```
 

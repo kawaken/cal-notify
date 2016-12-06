@@ -113,7 +113,7 @@ type IamClient struct {
 	CallOptions *IamCallOptions
 
 	// The metadata to be sent with each request.
-	metadata map[string][]string
+	metadata metadata.MD
 }
 
 // NewIamClient creates a new iam client.
@@ -164,9 +164,8 @@ func (c *IamClient) Close() error {
 // the `x-goog-api-client` header passed on each request. Intended for
 // use by Google-written clients.
 func (c *IamClient) SetGoogleClientInfo(name, version string) {
-	c.metadata = map[string][]string{
-		"x-goog-api-client": {fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, runtime.Version())},
-	}
+	v := fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, runtime.Version())
+	c.metadata = metadata.Pairs("x-goog-api-client", v)
 }
 
 // IamProjectPath returns the path for the project resource.
@@ -384,9 +383,9 @@ func (c *IamClient) SignBlob(ctx context.Context, req *adminpb.SignBlobRequest) 
 	return resp, nil
 }
 
-// GetIamPolicy returns the IAM access control policy for a
+// getIamPolicy returns the IAM access control policy for a
 // [ServiceAccount][google.iam.admin.v1.ServiceAccount].
-func (c *IamClient) GetIamPolicy(ctx context.Context, req *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
+func (c *IamClient) getIamPolicy(ctx context.Context, req *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	var resp *iampb.Policy
@@ -401,9 +400,9 @@ func (c *IamClient) GetIamPolicy(ctx context.Context, req *iampb.GetIamPolicyReq
 	return resp, nil
 }
 
-// SetIamPolicy sets the IAM access control policy for a
+// setIamPolicy sets the IAM access control policy for a
 // [ServiceAccount][google.iam.admin.v1.ServiceAccount].
-func (c *IamClient) SetIamPolicy(ctx context.Context, req *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
+func (c *IamClient) setIamPolicy(ctx context.Context, req *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	var resp *iampb.Policy

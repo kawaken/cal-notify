@@ -323,11 +323,7 @@ func TestCondition(t *testing.T) {
 	hc, close := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		io.Copy(ioutil.Discard, r.Body)
 		gotReq <- r
-		if r.Method == "POST" {
-			w.WriteHeader(200)
-		} else {
-			w.WriteHeader(500)
-		}
+		w.WriteHeader(200)
 	})
 	defer close()
 	ctx := context.Background()
@@ -366,6 +362,7 @@ func TestCondition(t *testing.T) {
 			func() { obj.If(Conditions{MetagenerationNotMatch: 1234}).Attrs(ctx) },
 			"GET /storage/v1/b/buck/o/obj?alt=json&ifMetagenerationNotMatch=1234&projection=full",
 		},
+
 		{
 			func() { obj.If(Conditions{MetagenerationMatch: 1234}).Update(ctx, ObjectAttrsToUpdate{}) },
 			"PATCH /storage/v1/b/buck/o/obj?alt=json&ifMetagenerationMatch=1234&projection=full",
@@ -470,6 +467,7 @@ func TestObjectCompose(t *testing.T) {
 			},
 			wantURL: "/storage/v1/b/foo/o/bar/compose?alt=json",
 			wantReq: raw.ComposeRequest{
+				Destination: &raw.Object{Bucket: "foo"},
 				SourceObjects: []*raw.ComposeRequestSourceObjects{
 					{Name: "baz"},
 					{Name: "quux"},
@@ -491,7 +489,7 @@ func TestObjectCompose(t *testing.T) {
 			wantReq: raw.ComposeRequest{
 				Destination: &raw.Object{
 					Bucket:      "foo",
-					Name:        "bar",
+					Name:        "not-bar",
 					ContentType: "application/json",
 				},
 				SourceObjects: []*raw.ComposeRequestSourceObjects{
@@ -512,6 +510,7 @@ func TestObjectCompose(t *testing.T) {
 			},
 			wantURL: "/storage/v1/b/foo/o/bar/compose?alt=json&ifGenerationMatch=12&ifMetagenerationMatch=34",
 			wantReq: raw.ComposeRequest{
+				Destination: &raw.Object{Bucket: "foo"},
 				SourceObjects: []*raw.ComposeRequestSourceObjects{
 					{
 						Name:       "baz",

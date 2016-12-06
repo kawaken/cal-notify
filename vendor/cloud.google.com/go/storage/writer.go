@@ -85,11 +85,15 @@ func (w *Writer) open() error {
 			Media(pr, mediaOpts...).
 			Projection("full").
 			Context(w.ctx)
-
+		if err := setEncryptionHeaders(call.Header(), w.o.encryptionKey, false); err != nil {
+			w.err = err
+			pr.CloseWithError(w.err)
+			return
+		}
 		var resp *raw.Object
 		err := applyConds("NewWriter", w.o.gen, w.o.conds, call)
 		if err == nil {
-			resp, err = call.Do()
+			err = runWithRetry(w.ctx, func() error { resp, err = call.Do(); return err })
 		}
 		if err != nil {
 			w.err = err

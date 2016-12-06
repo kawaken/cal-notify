@@ -213,42 +213,6 @@ func ExampleIamClient_SignBlob() {
 	_ = resp
 }
 
-func ExampleIamClient_GetIamPolicy() {
-	ctx := context.Background()
-	c, err := admin.NewIamClient(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	req := &iampb.GetIamPolicyRequest{
-	// TODO: Fill request struct fields.
-	}
-	resp, err := c.GetIamPolicy(ctx, req)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	// TODO: Use resp.
-	_ = resp
-}
-
-func ExampleIamClient_SetIamPolicy() {
-	ctx := context.Background()
-	c, err := admin.NewIamClient(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	req := &iampb.SetIamPolicyRequest{
-	// TODO: Fill request struct fields.
-	}
-	resp, err := c.SetIamPolicy(ctx, req)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	// TODO: Use resp.
-	_ = resp
-}
-
 func ExampleIamClient_TestIamPermissions() {
 	ctx := context.Background()
 	c, err := admin.NewIamClient(ctx)

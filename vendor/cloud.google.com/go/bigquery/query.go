@@ -102,31 +102,36 @@ const (
 type Query struct {
 	client *Client
 	QueryConfig
-
-	// The query to execute. See https://cloud.google.com/bigquery/query-reference for details.
-	//
-	// Deprecated: use QueryConfig.Q instead.
-	Q string
-
-	// DefaultProjectID and DefaultDatasetID specify the dataset to use for unqualified table names in the query.
-	// If DefaultProjectID is set, DefaultDatasetID must also be set.
-	DefaultProjectID string // Deprecated: use QueryConfig.DefaultProjectID instead.
-	DefaultDatasetID string // Deprecated: use QueryConfig.DefaultDatasetID instead.
-
-	// TableDefinitions describes data sources outside of BigQuery.
-	// The map keys may be used as table names in the query string.
-	//
-	// Deprecated: use QueryConfig.TableDefinitions instead.
-	TableDefinitions map[string]ExternalData
 }
 
-func (q *QueryConfig) implementsSource()     {}
-func (q *QueryConfig) implementsReadSource() {}
+// Query creates a query with string q.
+// The returned Query may optionally be further configured before its Run method is called.
+func (c *Client) Query(q string) *Query {
+	return &Query{
+		client:      c,
+		QueryConfig: QueryConfig{Q: q},
+	}
+}
 
-func (q *Query) implementsSource()     {}
-func (q *Query) implementsReadSource() {}
+// Run initiates a query job.
+func (q *Query) Run(ctx context.Context) (*Job, error) {
+	job := &bq.Job{
+		Configuration: &bq.JobConfiguration{
+			Query: &bq.JobConfigurationQuery{},
+		},
+	}
+	setJobRef(job, q.JobID, q.client.projectID)
 
-func (q *QueryConfig) customizeQuerySrc(conf *bq.JobConfigurationQuery) {
+	q.QueryConfig.populateJobQueryConfig(job.Configuration.Query)
+	j, err := q.client.service.insertJob(ctx, q.client.projectID, &insertJobConf{job: job})
+	if err != nil {
+		return nil, err
+	}
+	j.isQuery = true
+	return j, nil
+}
+
+func (q *QueryConfig) populateJobQueryConfig(conf *bq.JobConfigurationQuery) {
 	conf.Query = q.Q
 
 	if len(q.TableDefinitions) > 0 {
@@ -168,56 +173,7 @@ func (q *QueryConfig) customizeQuerySrc(conf *bq.JobConfigurationQuery) {
 		conf.ForceSendFields = append(conf.ForceSendFields, "UseLegacySql")
 	}
 
-	if q.Dst != nil {
-		q.Dst.customizeQueryDst(conf)
+	if q.Dst != nil && !q.Dst.implicitTable() {
+		conf.DestinationTable = q.Dst.tableRefProto()
 	}
-}
-
-// Query creates a query with string q.
-// The returned Query may optionally be further configured before its Run method is called.
-func (c *Client) Query(q string) *Query {
-	return &Query{
-		client:      c,
-		QueryConfig: QueryConfig{Q: q},
-	}
-}
-
-// Run initiates a query job.
-func (q *Query) Run(ctx context.Context) (*Job, error) {
-	job := &bq.Job{
-		Configuration: &bq.JobConfiguration{
-			Query: &bq.JobConfigurationQuery{},
-		},
-	}
-	setJobRef(job, q.JobID, q.client.projectID)
-
-	q.QueryConfig.customizeQuerySrc(job.Configuration.Query)
-
-	// For compatability, allow some legacy fields to be set directly on the query.
-	// Even though Query.Run is new, it is called by Query.Read, which may have non-empty deprecated fields.
-	// TODO(jba): delete this code when deleting Client.Copy.
-	conf := job.Configuration.Query
-	if q.Q != "" {
-		conf.Query = q.Q
-	}
-	if q.DefaultProjectID != "" || q.DefaultDatasetID != "" {
-		conf.DefaultDataset = &bq.DatasetReference{
-			DatasetId: q.DefaultDatasetID,
-			ProjectId: q.DefaultProjectID,
-		}
-	}
-	if len(q.TableDefinitions) > 0 {
-		conf.TableDefinitions = make(map[string]bq.ExternalDataConfiguration)
-	}
-	for name, data := range q.TableDefinitions {
-		conf.TableDefinitions[name] = data.externalDataConfig()
-	}
-	// end of compatability code.
-
-	j, err := q.client.service.insertJob(ctx, job, q.client.projectID)
-	if err != nil {
-		return nil, err
-	}
-	j.isQuery = true
-	return j, nil
 }

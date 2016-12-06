@@ -63,9 +63,6 @@ type TableMetadata struct {
 	NumRows uint64
 }
 
-// Tables is a group of tables. The tables may belong to differing projects or datasets.
-type Tables []*Table
-
 // CreateDisposition specifies the circumstances under which destination table will be created.
 // Default is CreateIfNeeded.
 type TableCreateDisposition string
@@ -103,11 +100,6 @@ const (
 	ViewTable    TableType = "VIEW"
 )
 
-func (t *Table) implementsSource()      {}
-func (t *Table) implementsReadSource()  {}
-func (t *Table) implementsDestination() {}
-func (ts Tables) implementsSource()     {}
-
 func (t *Table) tableRefProto() *bq.TableReference {
 	return &bq.TableReference{
 		ProjectId: t.ProjectID,
@@ -124,36 +116,6 @@ func (t *Table) FullyQualifiedName() string {
 // implicitTable reports whether Table is an empty placeholder, which signifies that a new table should be created with an auto-generated Table ID.
 func (t *Table) implicitTable() bool {
 	return t.ProjectID == "" && t.DatasetID == "" && t.TableID == ""
-}
-
-func (t *Table) customizeLoadDst(conf *bq.JobConfigurationLoad) {
-	conf.DestinationTable = t.tableRefProto()
-}
-
-func (t *Table) customizeExtractSrc(conf *bq.JobConfigurationExtract) {
-	conf.SourceTable = t.tableRefProto()
-}
-
-func (t *Table) customizeCopyDst(conf *bq.JobConfigurationTableCopy) {
-	conf.DestinationTable = t.tableRefProto()
-}
-
-func (ts Tables) customizeCopySrc(conf *bq.JobConfigurationTableCopy) {
-	for _, t := range ts {
-		conf.SourceTables = append(conf.SourceTables, t.tableRefProto())
-	}
-}
-
-func (t *Table) customizeQueryDst(conf *bq.JobConfigurationQuery) {
-	if !t.implicitTable() {
-		conf.DestinationTable = t.tableRefProto()
-	}
-}
-
-func (t *Table) customizeReadSrc(cursor *readTableConf) {
-	cursor.projectID = t.ProjectID
-	cursor.datasetID = t.DatasetID
-	cursor.tableID = t.TableID
 }
 
 // Create creates a table in the BigQuery service.
@@ -213,47 +175,6 @@ func (opt useStandardSQL) customizeCreateTable(conf *createTableConf) {
 	conf.useStandardSQL = true
 }
 
-// TableMetadataPatch represents a set of changes to a table's metadata.
-type TableMetadataPatch struct {
-	s                             service
-	projectID, datasetID, tableID string
-	conf                          patchTableConf
-}
-
-// Patch returns a *TableMetadataPatch, which can be used to modify specific Table metadata fields.
-// In order to apply the changes, the TableMetadataPatch's Apply method must be called.
-//
-// Deprecated: use Table.Update instead.
-func (t *Table) Patch() *TableMetadataPatch {
-	return &TableMetadataPatch{
-		s:         t.c.service,
-		projectID: t.ProjectID,
-		datasetID: t.DatasetID,
-		tableID:   t.TableID,
-	}
-}
-
-// Description sets the table description.
-//
-// Deprecated: use Table.Update instead.
-func (p *TableMetadataPatch) Description(desc string) {
-	p.conf.Description = &desc
-}
-
-// Name sets the table name.
-//
-// Deprecated: use Table.Update instead.
-func (p *TableMetadataPatch) Name(name string) {
-	p.conf.Name = &name
-}
-
-// Apply applies the patch operation.
-//
-// Deprecated: use Table.Update instead.
-func (p *TableMetadataPatch) Apply(ctx context.Context) (*TableMetadata, error) {
-	return p.s.patchTable(ctx, p.projectID, p.datasetID, p.tableID, &p.conf)
-}
-
 // Update modifies specific Table metadata fields.
 func (t *Table) Update(ctx context.Context, tm TableMetadataToUpdate) (*TableMetadata, error) {
 	var conf patchTableConf
@@ -265,6 +186,7 @@ func (t *Table) Update(ctx context.Context, tm TableMetadataToUpdate) (*TableMet
 		s := optional.ToString(tm.Name)
 		conf.Name = &s
 	}
+	conf.Schema = tm.Schema
 	return t.c.service.patchTable(ctx, t.ProjectID, t.DatasetID, t.TableID, &conf)
 }
 
@@ -277,73 +199,8 @@ type TableMetadataToUpdate struct {
 	// Name is the user-friendly name for this table.
 	Name optional.String
 
-	// TODO(jba): support updating the schema
+	// Schema is the table's schema.
+	// When updating a schema, you can add columns but not remove them.
+	Schema Schema
 	// TODO(jba): support updating the view
-}
-
-// NewUploader returns an *Uploader that can be used to append rows to t.
-func (t *Table) NewUploader(opts ...UploadOption) *Uploader {
-	uploader := &Uploader{t: t}
-
-	for _, o := range opts {
-		o.customizeInsertRows(&uploader.conf)
-	}
-
-	return uploader
-}
-
-// LoadConfig holds the configuration for a load job.
-type LoadConfig struct {
-	// JobID is the ID to use for the load job. If unset, a job ID will be automatically created.
-	JobID string
-
-	// Src is the source from which data will be loaded.
-	Src *GCSReference
-
-	// Dst is the table into which the data will be loaded.
-	Dst *Table
-
-	// CreateDisposition specifies the circumstances under which the destination table will be created.
-	// The default is CreateIfNeeded.
-	CreateDisposition TableCreateDisposition
-
-	// WriteDisposition specifies how existing data in the destination table is treated.
-	// The default is WriteAppend.
-	WriteDisposition TableWriteDisposition
-}
-
-// A Loader loads data from Google Cloud Storage into a BigQuery table.
-type Loader struct {
-	LoadConfig
-	c *Client
-}
-
-// LoaderFrom returns a Loader which can be used to load data from Google Cloud Storage into a BigQuery table.
-// The returned Loader may optionally be further configured before its Run method is called.
-func (t *Table) LoaderFrom(src *GCSReference) *Loader {
-	return &Loader{
-		c: t.c,
-		LoadConfig: LoadConfig{
-			Src: src,
-			Dst: t,
-		},
-	}
-}
-
-// Run initiates a load job.
-func (l *Loader) Run(ctx context.Context) (*Job, error) {
-	job := &bq.Job{
-		Configuration: &bq.JobConfiguration{
-			Load: &bq.JobConfigurationLoad{
-				CreateDisposition: string(l.CreateDisposition),
-				WriteDisposition:  string(l.WriteDisposition),
-			},
-		},
-	}
-	setJobRef(job, l.JobID, l.c.projectID)
-
-	l.Src.customizeLoadSrc(job.Configuration.Load)
-	l.Dst.customizeLoadDst(job.Configuration.Load)
-
-	return l.c.service.insertJob(ctx, job, l.c.projectID)
 }
