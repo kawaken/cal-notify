@@ -28,6 +28,9 @@ func notify() {
 	srv := getService()
 
 	calID := os.Getenv("GOOGLE_CALENDAR_ID")
+	if calID == "" {
+		log.Fatal("GOOGLE_CALENDAR_ID is not defined")
+	}
 
 	timeNow := time.Now()
 	strToday := timeNow.Format(time.RFC3339)
