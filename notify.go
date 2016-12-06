@@ -22,6 +22,14 @@ func (n *notifyEvent) String() string {
 		return "直近のイベントが設定されていません"
 	}
 
+	return fmt.Sprintf(`%s は %s の日です。`, n.when, n.Summary)
+}
+
+func (n *notifyEvent) LongString() string {
+	if n == nil {
+		return "直近のイベントが設定されていません"
+	}
+
 	return fmt.Sprintf(`%s は %s の日です。
 %s`, n.when, n.Summary, n.Description)
 }
