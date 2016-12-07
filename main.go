@@ -28,6 +28,9 @@ func notify() {
 	srv := getService()
 
 	calID := os.Getenv("GOOGLE_CALENDAR_ID")
+	if calID == "" {
+		log.Fatal("GOOGLE_CALENDAR_ID is not defined")
+	}
 
 	timeNow := time.Now()
 	strToday := timeNow.Format(time.RFC3339)
@@ -41,29 +44,34 @@ func notify() {
 		log.Fatalf("Unable to retrieve next ten of the user's events. %v", err)
 	}
 
-	if len(events.Items) > 0 {
-		for _, i := range events.Items {
-			et := getEventTime(i)
-			if et.Before(timeNow) {
-				continue
-			}
-			var when string
-			switch et.Day() {
-			case timeNow.Day():
-				when = "今日"
-			case timeTomorrow.Day():
-				when = "明日"
-			case timeFriday.Day():
-				when = fmt.Sprintf("%d(金)", et.Day())
-			default:
-				continue
-			}
-
-			lineNotify(&notifyEvent{Event: i, when: when})
-		}
-	} else {
-		lineNotify(nil)
+	if len(events.Items) == 0 {
+		return
 	}
+
+	var notifyEvents []*notifyEvent
+
+	for _, i := range events.Items {
+		et := getEventTime(i)
+		if et.Before(timeNow) {
+			continue
+		}
+		var when string
+		switch et.Day() {
+		case timeNow.Day():
+			when = "今日"
+		case timeTomorrow.Day():
+			when = "明日"
+		case timeFriday.Day():
+			when = fmt.Sprintf("%d(金)", et.Day())
+		default:
+			continue
+		}
+
+		notifyEvents = append(notifyEvents, &notifyEvent{Event: i, when: when})
+	}
+
+	lineNotify(notifyEvents)
+
 }
 
 func main() {
