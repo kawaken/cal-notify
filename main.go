@@ -45,9 +45,10 @@ func notify() {
 	}
 
 	if len(events.Items) == 0 {
-		lineNotify(nil)
 		return
 	}
+
+	var notifyEvents []*notifyEvent
 
 	for _, i := range events.Items {
 		et := getEventTime(i)
@@ -66,8 +67,11 @@ func notify() {
 			continue
 		}
 
-		lineNotify(&notifyEvent{Event: i, when: when})
+		notifyEvents = append(notifyEvents, &notifyEvent{Event: i, when: when})
 	}
+
+	lineNotify(notifyEvents)
+
 }
 
 func main() {
