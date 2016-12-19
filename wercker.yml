@@ -44,3 +44,18 @@ build:
         code: |
           go test
 
+    # Copy binary
+    - script:
+        name: copy binary
+        code: |
+          cp cal-notify $WERCKER_OUTPUT_DIR
+
+deploy:
+  steps:
+    - add-ssh-key:
+      keyname: SSH_KEY
+
+    - script:
+      name: push to server
+      code: |
+        scp -P $SSH_PORT -o "StrictHostKeyChecking=no" -r ./* $SSH_USER@$SSH_HOST:bin/
