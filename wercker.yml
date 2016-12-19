@@ -53,6 +53,6 @@ build:
 deploy:
   steps:
     - script:
-      name: echo
+      name: push to server
       code: |
-        echo hoge
+        scp -o "StrictHostKeyChecking=no" -r $WERCKER_OUTPUT_DIR/* $SSH_USER@$SSH_HOST:bin/
