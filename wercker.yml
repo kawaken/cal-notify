@@ -44,3 +44,15 @@ build:
         code: |
           go test
 
+    # Copy binary
+    - script:
+        name: copy binary
+        code: |
+          cp cal-notify $WERCKER_OUTPUT_DIR
+
+deploy:
+  steps:
+    - script:
+      name: echo
+      code: |
+        echo hoge
