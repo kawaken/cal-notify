@@ -56,12 +56,6 @@ deploy:
       keyname: SSH_KEY
 
     - script:
-      name: find
-      code: |
-        find .
-        find /pipeline
-
-    - script:
       name: push to server
       code: |
-        scp -P $SSH_PORT -o "StrictHostKeyChecking=no" -r $WERCKER_OUTPUT_DIR/* $SSH_USER@$SSH_HOST:bin/
+        scp -P $SSH_PORT -o "StrictHostKeyChecking=no" -r ./* $SSH_USER@$SSH_HOST:bin/
