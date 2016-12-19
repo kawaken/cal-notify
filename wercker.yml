@@ -53,7 +53,7 @@ build:
 deploy:
   steps:
     - add-ssh-key:
-      keyname: SSH_KEY_PRIVATE
+      keyname: SSH_KEY
 
     - script:
       name: push to server
